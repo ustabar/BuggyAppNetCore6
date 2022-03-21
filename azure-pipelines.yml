@@ -66,7 +66,7 @@ stages:
   # because output will be used in Release Pipeline
     - task: PublishBuildArtifacts@1
       inputs:
-        PathtoPublish: '$(System.DefaultWorkingDirectory)/deployment/'
+        PathtoPublish: '$(System.DefaultWorkingDirectory)/src/BuggyBits/Deployments/Kubernetes/'
         ArtifactName: 'drop'
         publishLocation: 'Container'
 
