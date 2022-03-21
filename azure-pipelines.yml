@@ -20,28 +20,53 @@ variables:
   vmImageName: 'ubuntu-latest'
 
 stages:
-- stage: Build
-  displayName: Build and push stage
+- stage: My_Environment
+  displayName: Print params, test, build and push stage
   jobs:
-  - job: Build
-    displayName: Build
+  # print all the parameters
+  - job: Print_Parameters
+    displayName: Print Parameters
     pool:
       vmImage: $(vmImageName)
     steps:
-    - task: Docker@2
-      displayName: Login to ACR
+    - task: Bash@3
       inputs:
-        command: login
-        containerRegistry: $(dockerRegistryServiceConnection)
+        targetType: 'inline'
+        script: |
+          echo 'Print all parameters: '
+          echo 'Service connection: ' $(dockerRegistryServiceConnection)
+          echo 'Image repository: ' $(imageRepository)
+          echo 'Azure container registry: ' $(containerRegistry)
+          echo 'Dockerfile path: ' $(dockerfilePath)
+          echo 'Build ID: ' $(tag)
+          echo 'VM image name: ' $(vmImageName)
+  - job: Build
+    displayName: Build
+    dependsOn: Print_Parameters
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+  #  - task: Docker@2
+  #    displayName: Login to ACR
+  #    inputs:
+  #      command: login
+  #      containerRegistry: $(dockerRegistryServiceConnection)
     - task: Docker@2
       displayName: Build and push an image to container registry
       inputs:
         command: buildAndPush
-        repository: buggy6coreimg
+        repository: $(imageRepository)
         dockerfile: $(dockerfilePath)
         containerRegistry: $(dockerRegistryServiceConnection)
         tags: |
           $(tag)
+          latest
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(System.DefaultWorkingDirectory)/deployment/'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
   # - task: CopyFiles@2
   #   inputs:
   #     SourceFolder: '$(Build.SourcesDirectory)/src/BuggyBits/Deployments/Kubernetes/'
