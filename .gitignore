@@ -1,3 +1,11 @@
+<<<<<<< HEAD
+bin
+obj
+*.user
+*.suo
+.vs
+.dist
+=======
 obj/
 bin/
 .vs/
@@ -38,3 +46,4 @@ msbuild.err
 msbuild.wrn
 
 trace.nettrace
+
