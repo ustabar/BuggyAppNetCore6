@@ -61,6 +61,9 @@ stages:
         tags: |
           $(tag)
           latest
+
+  # Each build must finish with artifact task 
+  # because output will be used in Release Pipeline
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: '$(System.DefaultWorkingDirectory)/deployment/'
@@ -72,9 +75,3 @@ stages:
   #     SourceFolder: '$(Build.SourcesDirectory)/src/BuggyBits/Deployments/Kubernetes/'
   #     Contents: 'buggy6.yaml'
   #     TargetFolder: 'barut/buggy6coreimg:$(tag)'
-
-  # - task: PublishBuildArtifacts@1
-  #   inputs:
-  #     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-  #     ArtifactName: 'drop'
-  #     publishLocation: 'Container'
