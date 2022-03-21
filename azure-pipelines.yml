@@ -1,0 +1,77 @@
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: '0e0492cf-1bc3-4e23-8273-907f136f0429'
+  imageRepository: 'buggynetcore'
+  containerRegistry: 'tatacr.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/src/BuggyBits/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: My_Environment
+  displayName: Print params, test, build and push stage
+  jobs:
+  # print all the parameters
+  - job: Print_Parameters
+    displayName: Print Parameters
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo 'Print all parameters: '
+          echo 'Service connection: ' $(dockerRegistryServiceConnection)
+          echo 'Image repository: ' $(imageRepository)
+          echo 'Azure container registry: ' $(containerRegistry)
+          echo 'Dockerfile path: ' $(dockerfilePath)
+          echo 'Build ID: ' $(tag)
+          echo 'VM image name: ' $(vmImageName)
+  - job: Build
+    displayName: Build
+    dependsOn: Print_Parameters
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+  #  - task: Docker@2
+  #    displayName: Login to ACR
+  #    inputs:
+  #      command: login
+  #      containerRegistry: $(dockerRegistryServiceConnection)
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+
+  # Each build must finish with artifact task 
+  # because output will be used in Release Pipeline
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(System.DefaultWorkingDirectory)/src/BuggyBits/Deployments/Kubernetes/'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+  # - task: CopyFiles@2
+  #   inputs:
+  #     SourceFolder: '$(Build.SourcesDirectory)/src/BuggyBits/Deployments/Kubernetes/'
+  #     Contents: 'buggy6.yaml'
+  #     TargetFolder: 'barut/buggy6coreimg:$(tag)'
