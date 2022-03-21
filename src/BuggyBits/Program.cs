@@ -1,39 +1,55 @@
-﻿// using App.Metrics.AspNetCore;
-// using App.Metrics.Formatters.Prometheus;
+﻿using BuggyBits.Models;
+using BuggyBits.ViewModels;
+using BuggyBits.Common;
+
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Prometheus;
 
-namespace BuggyBits
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddPrometheusCounters();
+builder.Services.AddPrometheusAspNetCoreMetrics();
+builder.Services.AddPrometheusHttpClientMetrics();
+
+builder.Services.AddMemoryCache();
+
+builder.Services.AddSingleton(_ => new DataLayer());
+builder.Services.AddSingleton<MetricReporter>();
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+
+var server = new MetricServer(port: 9998);
+server.Start();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
 {
-    public class Program
-    {
-        public static void Main(string[] args)
-        {
-            var server = new MetricServer(port: 9998);
-            server.Start();
-
-            CreateHostBuilder(args).Build().Run();
-        }
-
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            //Host.CreateDefaultBuilder(args)
-            //    .ConfigureMetrics()
-            //    .ConfigureWebHostDefaults(webBuilder =>
-            //    {
-            //        webBuilder.UseStartup<Startup>();
-            //    })
-            //.UseMetrics();
-            Host.CreateDefaultBuilder(args)
-                //.UseMetricsWebTracking()
-                //.UseMetrics(options => {
-                //    options.EndpointOptions = endpointsOptions =>
-                //    {
-                //        endpointsOptions.MetricsTextEndpointOutputFormatter = new MetricsPrometheusTextOutputFormatter();
-                //        endpointsOptions.MetricsEndpointOutputFormatter = new MetricsPrometheusProtobufOutputFormatter();
-                //        endpointsOptions.EnvironmentInfoEndpointEnabled = false;
-                //    };
-                //})
-                .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });
-    }
+    app.UseExceptionHandler("/Home/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
 }
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+app.UseHttpMetrics();
+app.UseMetricServer();
+app.UseMiddleware<ResponseMetricMiddleware>();
+
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.Run();

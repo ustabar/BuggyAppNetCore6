@@ -1,6 +1,7 @@
 obj/
 bin/
 .vs/
+.dist/
 *.swp
 *.*~
 project.lock.json
@@ -35,6 +36,3 @@ bld/
 msbuild.log
 msbuild.err
 msbuild.wrn
-
-# Visual Studio 2015
-.vs/
