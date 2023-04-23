@@ -1,9 +1,0 @@
-bin
-obj
-*.user
-*.suo
-.vs
-.dist
-appsettings.Development.json
-launchsettings.json
-trace.nettrace
