@@ -1,0 +1,100 @@
+name: CI + Deploy (Production IIS | .NET 6 | In-place)
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# Aynı anda iki prod deploy çakışmasın (in-place'te kritik)
+concurrency:
+  group: production-iis
+  cancel-in-progress: false
+
+jobs:
+  build_test:
+    name: build_test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "6.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Test
+        run: dotnet test -c Release --no-build
+
+      - name: Publish
+        run: dotnet publish -c Release -o publish --no-build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iis_publish
+          path: publish
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy_prod_iis:
+    name: deploy_prod_iis
+    needs: build_test
+    if: github.event_name == 'push'   # PR'da deploy olmasın
+    runs-on: [ self-hosted, windows, iis ]  # runner label'ların
+    environment: production            # Required reviewers ile manuel onay [2](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)[3](https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments)
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: iis_publish
+          path: publish
+
+      - name: In-place deploy to IIS (app_offline + robocopy + healthcheck)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $dst = "${{ vars.IIS_PHYSICAL_PATH }}"
+          $siteName = "${{ vars.IIS_SITE_NAME }}"
+          $healthUrl = "${{ vars.HEALTHCHECK_URL }}"
+
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+
+          # app_offline.htm: ASP.NET Core Module uygulamayı durdurmayı dener ve kilitli dosyaları bırakmak için ana mekanizmadır [4](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/app-offline?view=aspnetcore-10.0)[5](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/app-offline?view=aspnetcore-10.0)
+          $offlinePath = Join-Path $dst "app_offline.htm"
+
+          try {
+            Set-Content -Path $offlinePath -Value "<html><body><h3>Deployment in progress...</h3></body></html>"
+
+            # In-place sync: kaynak publish => hedef IIS klasörü
+            # Robocopy exit codes bitmap; 0-7 başarı, >=8 hata [6](https://ss64.com/nt/robocopy-exit.html)
+            $src = Join-Path $env:GITHUB_WORKSPACE "publish"
+
+            robocopy $src $dst /MIR /R:2 /W:5
+            if ($LASTEXITCODE -ge 8) { throw "Robocopy failed with exit code $LASTEXITCODE" }
+
+          }
+          finally {
+            # app_offline kaldır: kaldırılınca bir sonraki istek uygulamayı başlatır [4](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/app-offline?view=aspnetcore-10.0)
+            if (Test-Path $offlinePath) { Remove-Item $offlinePath -Force }
+          }
+
+          # Opsiyonel health check
+          if (![string]::IsNullOrWhiteSpace($healthUrl)) {
+            $resp = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 30
+            if ($resp.StatusCode -lt 200 -or $resp.StatusCode -ge 400) {
+              throw "Healthcheck failed: $($resp.StatusCode)"
+            }
+          } else {
+            Write-Host "HEALTHCHECK_URL not set; skipping health check."
+          }
