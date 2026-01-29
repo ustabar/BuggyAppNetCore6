@@ -48,9 +48,9 @@ jobs:
   deploy_prod_iis:
     name: deploy_prod_iis
     needs: build_test
-    if: github.event_name == 'push'   # PR'da deploy olmasın
+    if: github.event_name == 'workflow_dispatch'   # deploy sadece manuel çalışsın
     runs-on: [ self-hosted, windows, iis ]  # runner label'ların
-    environment: production            # Required reviewers ile manuel onay [2](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)[3](https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments)
+    environment: production            # Required reviewers ile manuel onay [2](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)[3](https://docs.github.[...]
 
     steps:
       - name: Download artifact
@@ -70,7 +70,7 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
 
-          # app_offline.htm: ASP.NET Core Module uygulamayı durdurmayı dener ve kilitli dosyaları bırakmak için ana mekanizmadır [4](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/app-offline?view=aspnetcore-10.0)[5](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/app-offline?view=aspnetcore-10.0)
+          # app_offline.htm: ASP.NET Core Module uygulamayı durdurmayı dener ve kilitli dosyaları bırakmak için ana mekanizmadır [4](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy[...]
           $offlinePath = Join-Path $dst "app_offline.htm"
 
           try {
