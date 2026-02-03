@@ -29,17 +29,17 @@ jobs:
           # Specify .NET SDK version (6.x)
           dotnet-version: '6.0.x'
 
-      # Restore NuGet packages for the solution
+      # Restore NuGet packages for the project (use project file at repo root)
       - name: Restore
-        run: dotnet restore ./BuggyAppNetCore6.sln
+        run: dotnet restore ./BuggyBits.csproj
 
-      # Build the solution in Release configuration without restoring
+      # Build the project in Release configuration without restoring
       - name: Build
-        run: dotnet build ./BuggyAppNetCore6.sln --no-restore -c Release
+        run: dotnet build ./BuggyBits.csproj --no-restore -c Release
 
       # Publish the project to a temporary publish folder
       - name: Publish
-        run: dotnet publish src/BuggyAppNetCore6/BuggyAppNetCore6.csproj -c Release -o ${{ runner.temp }}/publish
+        run: dotnet publish ./BuggyBits.csproj -c Release -o ${{ runner.temp }}/publish
 
       # Create a ZIP archive of the published output using PowerShell
       - name: Zip published output
