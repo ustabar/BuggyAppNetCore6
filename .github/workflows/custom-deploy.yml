@@ -1,0 +1,65 @@
+# Workflow display name shown in GitHub Actions UI
+name: Build and package for IIS
+
+# Events that trigger the workflow
+on:
+  # Trigger on pushes to specified branches
+  push:
+    # List of branches that trigger the workflow when code is pushed
+    branches: [ main ]
+  # Allows manually triggering the workflow from the GitHub UI
+  workflow_dispatch:
+
+# Define jobs to run in the workflow
+jobs:
+  # A job named 'package' that builds and packages the app
+  package:
+    # Use a Windows runner suitable for IIS packaging tasks
+    runs-on: windows-latest
+    # Steps executed in order inside the job
+    steps:
+      # Checkout the repository code into the runner
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install the .NET SDK specified below
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          # Specify .NET SDK version (6.x)
+          dotnet-version: '6.0.x'
+
+      # Restore NuGet packages for the solution
+      - name: Restore
+        run: dotnet restore ./BuggyAppNetCore6.sln
+
+      # Build the solution in Release configuration without restoring
+      - name: Build
+        run: dotnet build ./BuggyAppNetCore6.sln --no-restore -c Release
+
+      # Publish the project to a temporary publish folder
+      - name: Publish
+        run: dotnet publish src/BuggyAppNetCore6/BuggyAppNetCore6.csproj -c Release -o ${{ runner.temp }}/publish
+
+      # Create a ZIP archive of the published output using PowerShell
+      - name: Zip published output
+        # Use PowerShell Core on Windows runners
+        shell: pwsh
+        run: |
+          # Build the path to the output ZIP file in the runner temp directory
+          $zip = Join-Path $env:RUNNER_TEMP 'site.zip'
+          # Remove any existing ZIP at that path to avoid conflicts
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          # Compress all files inside the publish folder into the ZIP
+          Compress-Archive -Path (Join-Path $env:RUNNER_TEMP 'publish\*') -DestinationPath $zip -Force
+          # Output the path to the created package for logs
+          Write-Output "Package created: $zip"
+
+      # Upload the ZIP as a workflow artifact for later download
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # Artifact name shown in GitHub Actions UI
+          name: site-zip
+          # Path to the ZIP file to upload from the runner temp directory
+          path: ${{ runner.temp }}\site.zip
